@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Control de Ingresos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#a63d9c">
+<link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ingresos"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+:root{--bg:#fbf6fb;--card:#fff;--tx:#2b2230;--mu:#7a6b82;--ac:#a63d9c;--hd:#f1d0ee;--bd:#e6d6e5;--ok:#1f8a4c;--bad:#c0392b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1620;--card:#271f2c;--tx:#f3eaf4;--mu:#b7a6bd;--ac:#d77acd;--hd:#4a2a47;--bd:#3d3142}}
+:root[data-theme="dark"]{--bg:#1c1620;--card:#271f2c;--tx:#f3eaf4;--mu:#b7a6bd;--ac:#d77acd;--hd:#4a2a47;--bd:#3d3142}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,Segoe UI,Arial,sans-serif}
+main{max-width:980px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:4px 0 10px}h2{font-size:16px;margin:0 0 8px}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+nav button,.btn{border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit}
+nav button.on,.btn.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:12px}
+.sc{overflow-x:auto}table{width:100%;border-collapse:collapse}
+th{background:var(--hd);text-align:left;padding:7px;font-size:13px}td{padding:6px 7px;border-bottom:1px solid var(--bd)}
+.n{text-align:right;white-space:nowrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+input,select{padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit;min-width:0}
+.row input{flex:1 1 120px}.row input.w{flex:2 1 180px}
+.tot td{font-weight:700;border-top:2px solid var(--ac)}
+.debe{color:var(--bad);font-weight:700}.pag{color:var(--ok);font-weight:700}
+.x{border:0;background:none;color:var(--bad);cursor:pointer;font-size:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px}.kpi small{color:var(--mu)}.kpi b{display:block;font-size:19px}
+.mu{color:var(--mu);font-size:13px}.hide{display:none}
+</style></head><body><main>
+<h1>💅 Control de Ingresos</h1>
+<nav id="nav"></nav><div id="v"></div>
+<div class="mu" style="margin-top:14px">Los datos se guardan en este navegador. Usa «Respaldo» para guardarlos o pasarlos a otro dispositivo.
+<button class="btn" onclick="exp()">Respaldo ⬇</button> <label class="btn">Restaurar ⬆<input type="file" accept=".json" class="hide" onchange="imp(this)"></label></div>
+<script>
+const MES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const SEED={fijos:[],creditos:[]};
+let D,tab="res",year=2026,sel=0;
+try{D=JSON.parse(localStorage.getItem("ci_data"))}catch(e){}
+if(!D||!D.fijos)D=JSON.parse(JSON.stringify(SEED));
+const save=()=>{try{localStorage.setItem("ci_data",JSON.stringify(D))}catch(e){}};
+const $=n=>"$ "+Math.round(n).toLocaleString("es-CO");
+const e=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fd=s=>s?s.split("-").reverse().join("/"):"";
+const sum=a=>a.reduce((x,y)=>x+y,0);
+const today=()=>new Date().toISOString().slice(0,10);
+const tot=c=>{const v=sum(c.s.map(x=>x[2])),a=sum(c.p.map(x=>x[1]));return{v,a,d:v-a}};
+function months(y){const m=Array(12).fill(0),f=Array(12).fill(0),a=Array(12).fill(0);
+ D.fijos.forEach(x=>{if(+x.f.slice(0,4)===y){f[+x.f.slice(5,7)-1]+=x.v}});
+ D.creditos.forEach(c=>c.p.forEach(p=>{if(+p[0].slice(0,4)===y)a[+p[0].slice(5,7)-1]+=p[1]}));
+ return m.map((_,i)=>[f[i],a[i]])}
+function render(){
+ nav.innerHTML=[["res","📊 Resumen"],["fij","👤 Clientes fijos"],["cre","🧾 Créditos"]].map(([k,t])=>`<button class="${tab==k?"on":""}" onclick="tab='${k}';render()">${t}</button>`).join("");
+ v.innerHTML=tab=="res"?rRes():tab=="fij"?rFij():rCre()}
+function rRes(){
+ const m=months(year),T=sum(m.map(x=>x[0]+x[1])),pend=sum(D.creditos.map(c=>tot(c).d));
+ const ys=[...new Set([2026,year,...D.fijos.map(x=>+x.f.slice(0,4)),...D.creditos.flatMap(c=>c.p.map(p=>+p[0].slice(0,4)))])].sort();
+ return `<div class="kpis"><div class="kpi"><small>Ingresos ${year}</small><b>${$(T)}</b></div><div class="kpi"><small>Clientes fijos</small><b>${$(sum(m.map(x=>x[0])))}</b></div><div class="kpi"><small>Abonos de créditos</small><b>${$(sum(m.map(x=>x[1])))}</b></div><div class="kpi"><small>Por cobrar (total)</small><b class="debe">${$(pend)}</b></div></div>
+ <div class="card"><div class="row"><h2 style="flex:1">Ingresos por mes</h2><select onchange="year=+this.value;render()">${ys.map(y=>`<option ${y==year?"selected":""}>${y}</option>`).join("")}</select></div>
+ <div class="sc"><table><tr><th>Mes</th><th class="n">Fijos</th><th class="n">Abonos</th><th class="n">Total mensual</th></tr>
+ ${m.map((x,i)=>`<tr><td>${MES[i]}</td><td class="n">${$(x[0])}</td><td class="n">${$(x[1])}</td><td class="n"><b>${$(x[0]+x[1])}</b></td></tr>`).join("")}
+ <tr class="tot"><td>Total ${year}</td><td class="n">${$(sum(m.map(x=>x[0])))}</td><td class="n">${$(sum(m.map(x=>x[1])))}</td><td class="n">${$(T)}</td></tr></table></div></div>
+ <div class="card"><h2>Saldos por cliente con crédito</h2><div class="sc"><table><tr><th>Cliente</th><th class="n">Valor</th><th class="n">Abonó</th><th class="n">Saldo por pagar</th></tr>
+ ${D.creditos.map((c,i)=>{const t=tot(c);return `<tr><td><a href="#" onclick="tab='cre';sel=${i};render();return false" style="color:var(--ac)">${e(c.n)}</a></td><td class="n">${$(t.v)}</td><td class="n">${$(t.a)}</td><td class="n ${t.d>0?"debe":"pag"}">${$(t.d)}</td></tr>`}).join("")}
+ <tr class="tot"><td>TOTAL</td><td class="n">${$(sum(D.creditos.map(c=>tot(c).v)))}</td><td class="n">${$(sum(D.creditos.map(c=>tot(c).a)))}</td><td class="n debe">${$(pend)}</td></tr></table></div></div>`}
+function rFij(){
+ const l=[...D.fijos.map((x,i)=>[x,i])].sort((a,b)=>b[0].f.localeCompare(a[0].f));
+ return `<div class="card"><h2>Registrar servicio (pago inmediato)</h2><div class="row"><input type="date" id="ff" value="${today()}"><input class="w" id="fc" placeholder="Cliente" list="cl"><input class="w" id="fs" placeholder="Servicio"><input type="number" id="fv" placeholder="Valor"><button class="btn p" onclick="addF()">Agregar</button></div>
+ <datalist id="cl">${[...new Set(D.fijos.map(x=>x.c))].map(c=>`<option value="${e(c)}">`).join("")}</datalist>
+ <div class="sc"><table><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th class="n">Valor</th><th></th></tr>
+ ${l.map(([x,i])=>`<tr><td>${fd(x.f)}</td><td>${e(x.c)}</td><td>${e(x.s)}</td><td class="n">${$(x.v)}</td><td><button class="x" onclick="D.fijos.splice(${i},1);save();render()">✕</button></td></tr>`).join("")}
+ <tr class="tot"><td colspan="3">Total</td><td class="n">${$(sum(D.fijos.map(x=>x.v)))}</td><td></td></tr></table></div></div>
+ <div class="card"><h2>Resumen por cliente</h2><div class="sc"><table><tr><th>Cliente</th><th class="n">Servicios</th><th class="n">Total pagado</th></tr>
+ ${[...new Set(D.fijos.map(x=>x.c))].map(c=>{const a=D.fijos.filter(x=>x.c==c);return `<tr><td>${e(c)}</td><td class="n">${a.length}</td><td class="n">${$(sum(a.map(x=>x.v)))}</td></tr>`}).join("")}</table></div></div>`}
+function rCre(){
+ if(sel>=D.creditos.length)sel=0;const c=D.creditos[sel];
+ let h=`<div class="card"><div class="row"><select onchange="sel=+this.value;render()" style="flex:1">${D.creditos.map((x,i)=>`<option value="${i}" ${i==sel?"selected":""}>${e(x.n)}</option>`).join("")}</select>
+ <input id="nc" placeholder="Nuevo cliente con crédito"><button class="btn p" onclick="addC()">+ Cliente</button></div></div>`;
+ if(!c)return h;const t=tot(c);
+ const ps=c.s.map((x,i)=>[x,i]).sort((a,b)=>a[0][0].localeCompare(b[0][0])),pp=c.p.map((x,i)=>[x,i]).sort((a,b)=>a[0][0].localeCompare(b[0][0]));
+ return h+`<div class="kpis"><div class="kpi"><small>Valor servicios</small><b>${$(t.v)}</b></div><div class="kpi"><small>Abonos</small><b>${$(t.a)}</b></div><div class="kpi"><small>Saldo por pagar</small><b class="${t.d>0?"debe":"pag"}">${$(t.d)}</b></div></div>
+ <div class="card"><h2>Servicios — ${e(c.n)}</h2><div class="row"><input type="date" id="sf" value="${today()}"><input class="w" id="ss" placeholder="Servicio"><input type="number" id="sv" placeholder="Valor"><button class="btn p" onclick="addS()">Agregar</button></div>
+ <div class="sc"><table><tr><th>Fecha</th><th>Servicio</th><th class="n">Valor</th><th></th></tr>${ps.map(([x,i])=>`<tr><td>${fd(x[0])}</td><td>${e(x[1])}</td><td class="n">${$(x[2])}</td><td><button class="x" onclick="D.creditos[sel].s.splice(${i},1);save();render()">✕</button></td></tr>`).join("")}
+ <tr class="tot"><td colspan="2">Total valor</td><td class="n">${$(t.v)}</td><td></td></tr></table></div></div>
+ <div class="card"><h2>Pagos / abonos</h2><div class="row"><input type="date" id="pf" value="${today()}"><input type="number" id="pv" placeholder="Abono"><button class="btn p" onclick="addP()">Registrar abono</button></div>
+ <div class="sc"><table><tr><th>Fecha</th><th class="n">Abono</th><th></th></tr>${pp.map(([x,i])=>`<tr><td>${fd(x[0])||"sin fecha"}</td><td class="n">${$(x[1])}</td><td><button class="x" onclick="D.creditos[sel].p.splice(${i},1);save();render()">✕</button></td></tr>`).join("")}
+ <tr class="tot"><td>Total abonos</td><td class="n">${$(t.a)}</td><td></td></tr></table></div><p class="mu">Cada abono se suma al mes de su fecha en el Resumen.</p>
+ <button class="btn" onclick="if(confirm('¿Eliminar este cliente y todo su historial?')){D.creditos.splice(sel,1);sel=0;save();render()}">Eliminar cliente</button></div>`}
+const g=i=>document.getElementById(i).value;
+function addF(){const v=+g("fv");if(!g("ff")||!g("fc").trim()||!v)return alert("Completa fecha, cliente y valor");D.fijos.push({f:g("ff"),c:g("fc").trim(),s:g("fs").trim(),v});save();render()}
+function addC(){const n=g("nc").trim();if(!n)return;D.creditos.push({n,s:[],p:[]});sel=D.creditos.length-1;save();render()}
+function addS(){const v=+g("sv");if(!g("sf")||!v)return alert("Completa fecha y valor");D.creditos[sel].s.push([g("sf"),g("ss").trim(),v]);save();render()}
+function addP(){const v=+g("pv");if(!g("pf")||!v)return alert("Completa fecha y abono");D.creditos[sel].p.push([g("pf"),v]);save();render()}
+function exp(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(D)],{type:"application/json"}));a.download="respaldo_ingresos.json";a.click()}
+function imp(i){const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(x.fijos&&x.creditos){D=x;save();render()}else alert("Archivo no válido")}catch(_){alert("Archivo no válido")}};r.readAsText(i.files[0])}
+render();
+try{if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js")}catch(_){}
+</script></main></body></html>
